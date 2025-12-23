@@ -1,20 +1,57 @@
 package manager
 
 import com.microsoft.playwright.*
-import java.nio.file.Path
+import kotlin.io.path.Path
+import kotlin.io.path.exists
 
-/*
-获取授权token，在这个页面上要求用户登录
-当到/my/页面时，说明登录成功，保存新的token，之后返回登录后的context
-@param page 页面对象
+/**
+ * 每次会话都需要一个AuthManager来创建context
+ *
+ * 验证AuthToken有效性会创建entryPage
+ * @param browser 浏览器对象
+ * @param entry 本次会话入口url
  */
-fun getAuthToken(context: BrowserContext, storagePath: Path): BrowserContext{
-    val page = context.pages().last()  // 不可能报错吧qwq
-    // 登录成功会跳转到下面界面
-    page.waitForSelector(
-        "li.mycourse",
-        Page.WaitForSelectorOptions().setTimeout(300_000.0)
-    )
-    context.storageState(BrowserContext.StorageStateOptions().setPath(storagePath))
-    return context
+class AuthManager(private val browser: Browser, private val entry: String) {
+    val authStoragePath = Path("data/authToken.json")
+
+    // 根据是否有authToken创建context
+    val context: BrowserContext = if (authStoragePath.exists()) {
+        browser.newContext(Browser.NewContextOptions()
+                .setStorageStatePath(authStoragePath)
+        )
+    } else {
+        browser.newContext()
+    }
+
+    private lateinit var entryPage: Page
+
+    /**
+     * context创建即验证AuthToken有效性
+     */
+    init {
+        verifyOrWait()
+    }
+
+    /**
+     * 导航到入口页面，验证用户登录，或等待直到用户登录
+     * 登录成功就刷新AuthToken
+     */
+    fun verifyOrWait() {
+        entryPage = context.newPage()
+        entryPage.navigate(entry)
+        entryPage.waitForSelector(
+            "li.mycourse",
+            Page.WaitForSelectorOptions().setTimeout(300_000.0)
+        )
+        saveToken()
+    }
+
+    /**
+     * 保存AuthToken
+     */
+    fun saveToken() {
+        context.storageState(BrowserContext.StorageStateOptions()
+            .setPath(authStoragePath)
+        )
+    }
 }
