@@ -1,10 +1,14 @@
 import com.microsoft.playwright.*
 import manager.Session
+import model.PlanningModel
 
 fun main() {
     Playwright.create().use { pr ->
-        Session(pr, "https://moodle.scnu.edu.cn/").use { session ->
-
+        Session(pr).use { session ->
+            val planning = PlanningModel(session)
+            planning.chooseCourses()
+            planning.closeMyPage()
+            planning.planVideos()
         }
     }
 }
