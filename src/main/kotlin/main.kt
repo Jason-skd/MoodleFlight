@@ -9,6 +9,7 @@ fun main() {
             planning.chooseCourses()
             planning.closeMyPage()
             planning.planVideos()
+            planning.gatherVideosStatistics()
         }
     }
 }

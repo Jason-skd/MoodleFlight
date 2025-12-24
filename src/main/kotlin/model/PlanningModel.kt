@@ -26,7 +26,8 @@ data class Video(
     val name: String,
     val url: String,
     val watchSeconds: Int? =null,
-    val totalSeconds: Int? = null
+    val totalSeconds: Int? = null,
+    val finish: Boolean = false
 )
 
 /**
@@ -42,6 +43,7 @@ class PlanningModel(private val session: Session) {
     private val today: LocalDate? = LocalDate.now()
     val planDir = Path("data/plans/$today")
     val coursesDir: Path = planDir.resolve("courses.json")
+
     init {
         planDir.createDirectories()
     }
@@ -58,7 +60,7 @@ class PlanningModel(private val session: Session) {
         return coursesInQuery.map { link ->
             Course(
                 name = link.textContent().trim(),
-                url = link.getAttribute("href") ?:""
+                url = link.getAttribute("href") ?: ""
             )
         }
     }
@@ -101,18 +103,23 @@ class PlanningModel(private val session: Session) {
 
     fun planVideos() {
         chosenCourses.forEach { course ->
-            planVideosForCourse(course)
+            val result = planVideosForCourse(course)
+            result.onFailure { throw it }
         }
     }
 
-    private fun planVideosForCourse(course: Course) {
+    private fun planVideosForCourse(course: Course): Result<String> {
         if (planDir.resolve("${course.name}_videos.json").exists()) {
             println("课程 ${course.name} 的视频计划已存在，跳过...")
-            return
+            return Result.success(course.name)
         }
-        val videos = fetchVideosFromCourse(course)
-        displayVideos(course, videos)
-        pickleVideos(course, videos)
+        val result = runCatching {
+            val videos = fetchVideosFromCourse(course)
+            displayVideos(course, videos)
+            pickleVideos(course, videos)
+            course.name
+        }
+        return result
     }
 
     private fun fetchVideosFromCourse(course: Course): List<Video> {
@@ -135,10 +142,10 @@ class PlanningModel(private val session: Session) {
                 .map { link ->
                     Video(
                         name = link.textContent().trim(),
-                        url = link.getAttribute("href") ?:""
+                        url = link.getAttribute("href") ?: ""
                     )
                 }
-            }
+        }
         return videos
     }
 
@@ -155,24 +162,76 @@ class PlanningModel(private val session: Session) {
         println("成功保存课程 ${course.name} 的视频计划至 $planDir")
     }
 
-//    fun gatherVideosStatistics() {
-//        val videos = getAllVideos()
-//    }
-//
-//    private fun getAllVideos(): List<Video> {
-//        val videoFiles = planDir.listDirectoryEntries("*_videos.json")
-//        return videoFiles.flatMap { file ->
-//            Json.decodeFromString(file.readText())
-//        }
-//    }
-//
-//    private fun gatherAVideo(video: Video) {
-//        if (video.watchSeconds != null && video.totalSeconds != null) {
-//            println("视频 ${video.name} 已统计，跳过...")
-//            return
-//        }
-//        session.newPage(video.url).use { videoPage ->
-//    }
+    fun gatherVideosStatistics() {
+        planDir.listDirectoryEntries("*_videos.json").forEach { file ->
+            val videos: List<Video> = Json.decodeFromString(file.readText())
+            val results = videos.map { video -> video to gatherAVideo(video) }
+
+            val successCount = results.count { it.second.isSuccess }
+            val failCount = results.count { it.second.isFailure }
+            println("${file.fileName}: 成功 $successCount，失败 $failCount")
+
+            val updatedVideos = results.map { (original, result) ->
+                result.getOrElse { original}
+            }
+
+            file.writeText(Json.encodeToString(updatedVideos))
+            println("已更新 ${file.fileName} 的视频统计信息")
+        }
+    }
+
+    private fun gatherAVideo(video: Video): Result<Video> {
+        if (video.watchSeconds != null && video.totalSeconds != null) {
+            println("视频 ${video.name} 已统计，跳过...")
+            return Result.success(video)
+        }
+
+        return runCatching {
+            val totalTimeText: String?
+            val watchSecondsText: String?
+            val finish: Boolean
+
+            session.newPage(video.url).use { videoPage ->
+                // 等待统计信息加载
+                videoPage.waitForSelector(".num-gksc > span")
+
+                // 等待视频时长加载完成（不为 "0:00"）
+                videoPage.waitForFunction("""
+                    () => {
+                        const el = document.querySelector('.vjs-duration-display');
+                        return el && el.textContent && el.textContent !== '0:00';
+                    }
+                """)
+
+                totalTimeText = videoPage.querySelector(".vjs-duration-display")?.textContent()
+                watchSecondsText = videoPage.querySelector(".num-gksc > span")?.textContent()
+                val finishText = videoPage.querySelector(".tips-completion")?.textContent()
+                finish = finishText == "已完成"
+
+            }
+
+            val totalSeconds = totalTimeText?.let { parseDuration(it) }
+                ?: throw Exception("无法获取总时长")
+            val watchSeconds = watchSecondsText?.toIntOrNull()
+                ?: throw Exception("无法获取观看时长")
+
+            println("${video.name} 统计信息：总时长 $totalSeconds 秒，已观看 $watchSeconds 秒， 完成状态: ${if (finish) "已完成" else "未完成"}")
+            video.copy(totalSeconds = totalSeconds, watchSeconds = watchSeconds, finish = finish)
+        }.onFailure { e ->
+            println("获取 ${video.name} 统计失败: ${e.message}")
+        }
+    }
+
+    companion object {
+        private fun parseDuration(text: String): Int {
+            val parts = text.split(":")
+            return when (parts.size) {
+                2 -> parts[0].toInt() * 60 + parts[1].toInt()
+                3 -> parts[0].toInt() * 3600 + parts[1].toInt() * 60 + parts[2].toInt()
+                else -> 0
+            }
+        }
+    }
 }
 
 /**

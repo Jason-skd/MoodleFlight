@@ -14,14 +14,17 @@ class Session(private val pr: Playwright) : AutoCloseable {
 
     lateinit var authToken: String
 
-    // 登录配置必须关闭无头模式
     private val authOptions = BrowserType.LaunchOptions()
-        .setHeadless(false)
+        .setHeadless(false)      // 不能改！！登录配置必须关闭无头模式
         .setChannel("chrome")
+        .setArgs(listOf("--disable-blink-features=AutomationControlled"))
+
 
     private val runningOptions = BrowserType.LaunchOptions()
-        .setHeadless(false)
+        .setHeadless(true)
         .setChannel("chrome")
+        .setArgs(listOf("--disable-blink-features=AutomationControlled"))
+
 
     private val browser: Browser = pr.chromium().launch(runningOptions)
 

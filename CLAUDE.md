@@ -46,35 +46,41 @@ TargetWebsite/
 - **进度检测**: `.num-gksc > span` 元素获取已观看时长
 - **会话保持**: 检测并点击「延长会话」按钮
 
-## 计划架构（Kotlin 版）
+## 当前架构（Kotlin 版）
 
 ```
 src/main/kotlin/
-├── Main.kt                 # 入口
+├── main.kt                     # 入口，串联各阶段流程
 ├── manager/
-│   ├── BrowserManager.kt   # 浏览器生命周期
-│   ├── AuthManager.kt      # Cookie 认证
-│   └── VideoManager.kt     # 视频操作
+│   └── Session.kt              # 浏览器会话管理 + Cookie 认证
 ├── model/
-│   └── WatchPlan.kt        # 观看计划数据模型
-├── util/
-│   ├── Logger.kt           # 日志系统
-│   └── Screenshot.kt       # 异常截屏
-└── data/
-    └── progress.json       # 进度持久化
+│   └── PlanningModel.kt        # 计划阶段：课程选择、视频提取、统计收集
+└── data/plans/<date>/
+    ├── courses.json            # 用户选择的课程
+    └── <课程名>_videos.json     # 各课程的视频列表及统计信息
 ```
 
 ## 核心功能清单
 
-- [ ] 浏览器启动与反检测
-- [ ] Cookie 登录与会话管理
-- [ ] 课程列表获取与用户选择
-- [ ] 视频链接提取
+- [x] 浏览器启动与反检测 (Session.kt)
+- [x] Cookie 登录与会话管理 (Session.kt - verifyAuth, saveCookies)
+- [x] 课程列表获取与用户选择 (PlanningModel.chooseCourses)
+- [x] 视频链接提取 (PlanningModel.fetchVideosFromCourse)
+- [x] 视频统计收集 (PlanningModel.gatherVideosStatistics - watchSeconds/totalSeconds/finish)
+- [x] 断点续连（JSON 持久化 - courses.json, *_videos.json）
 - [ ] 视频自动播放与进度监控
 - [ ] 95% 进度自动切换
-- [ ] 断点续连（JSON 持久化）
 - [ ] 日志系统与异常截屏
 - [ ] 进度条显示
+
+## 关键选择器
+
+| 元素 | 选择器 | 用途 |
+|------|--------|------|
+| 视频总时长 | `.vjs-duration-display` | 格式 "3:03"，需等待加载 |
+| 已观看秒数 | `.num-gksc > span` | 整数秒 |
+| 观看百分比 | `.num-bfjd > span` | 百分比 |
+| 完成状态 | `.tips-completion` | "已完成" 或其他 |
 
 ## 开发命令
 
