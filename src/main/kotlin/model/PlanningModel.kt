@@ -8,6 +8,7 @@ import java.time.LocalDate
 import kotlin.io.path.*
 
 import manager.Session
+import mu.KotlinLogging
 import java.nio.file.Path
 
 /**
@@ -70,21 +71,13 @@ class PlanningModel(private val session: Session) {
      */
     fun chooseCourses() {
         if (coursesDir.exists()) {
-            println("课程计划已存在")
+            logger.info { "courses plan exists, reloading..."}
             val json = coursesDir.readText()
             chosenCourses = Json.decodeFromString(json)
         } else {
             val allCourses = fetchCourses()
             chosenCourses = chooseCoursesIO(allCourses).map { allCourses[it] }
             pickleChosenCourses()
-        }
-        displayChosenCourses()
-    }
-
-    private fun displayChosenCourses() {
-        println("您选择了以下课程纳入计划：")
-        chosenCourses.forEach { course ->
-            println("- ${course.name}")
         }
     }
 
@@ -94,7 +87,7 @@ class PlanningModel(private val session: Session) {
     private fun pickleChosenCourses() {
         val json = Json.encodeToString(chosenCourses)
         coursesDir.writeText(json)
-        println("成功保存课程计划至 $planDir")
+        logger.info { "courses plan pickled to $coursesDir" }
     }
 
     fun closeMyPage() {
@@ -110,12 +103,11 @@ class PlanningModel(private val session: Session) {
 
     private fun planVideosForCourse(course: Course): Result<String> {
         if (planDir.resolve("${course.name}_videos.json").exists()) {
-            println("课程 ${course.name} 的视频计划已存在，跳过...")
+            logger.info { "course ${course.name} already exists, skip"}
             return Result.success(course.name)
         }
         val result = runCatching {
             val videos = fetchVideosFromCourse(course)
-            displayVideos(course, videos)
             pickleVideos(course, videos)
             course.name
         }
@@ -149,17 +141,11 @@ class PlanningModel(private val session: Session) {
         return videos
     }
 
-    private fun displayVideos(course: Course, videos: List<Video>) {
-        println("${course.name}课程包含以下视频资源：")
-        videos.forEach { video ->
-            println("- ${video.name}")
-        }
-    }
-
     private fun pickleVideos(course: Course, videos: List<Video>) {
         val json = Json.encodeToString(videos)
-        planDir.resolve("${course.name}_videos.json").writeText(json)
-        println("成功保存课程 ${course.name} 的视频计划至 $planDir")
+        val dir = planDir.resolve("${course.name}_videos.json")
+        dir.writeText(json)
+        logger.info { "videos plan pickled to $dir." }
     }
 
     fun gatherVideosStatistics() {
@@ -169,20 +155,20 @@ class PlanningModel(private val session: Session) {
 
             val successCount = results.count { it.second.isSuccess }
             val failCount = results.count { it.second.isFailure }
-            println("${file.fileName}: 成功 $successCount，失败 $failCount")
+            logger.info { "video statics in ${file.name} have all been gathered. success: $successCount fail: $failCount." }
 
             val updatedVideos = results.map { (original, result) ->
-                result.getOrElse { original}
+                result.getOrElse { original }
             }
 
             file.writeText(Json.encodeToString(updatedVideos))
-            println("已更新 ${file.fileName} 的视频统计信息")
+            logger.info { "video statics in ${file.name} have been pickled" }
         }
     }
 
     private fun gatherAVideo(video: Video): Result<Video> {
         if (video.watchSeconds != null && video.totalSeconds != null) {
-            println("视频 ${video.name} 已统计，跳过...")
+            logger.info { "statics of ${video.name} already exists, skip" }
             return Result.success(video)
         }
 
@@ -211,14 +197,13 @@ class PlanningModel(private val session: Session) {
             }
 
             val totalSeconds = totalTimeText?.let { parseDuration(it) }
-                ?: throw Exception("无法获取总时长")
+                ?: throw Exception("Unable to parse total time")
             val watchSeconds = watchSecondsText?.toIntOrNull()
-                ?: throw Exception("无法获取观看时长")
+                ?: throw Exception("Unable to parse watch seconds")
 
-            println("${video.name} 统计信息：总时长 $totalSeconds 秒，已观看 $watchSeconds 秒， 完成状态: ${if (finish) "已完成" else "未完成"}")
             video.copy(totalSeconds = totalSeconds, watchSeconds = watchSeconds, finish = finish)
         }.onFailure { e ->
-            println("获取 ${video.name} 统计失败: ${e.message}")
+            logger.error(e) { "failed to gather statics of ${video.name}: ${e.message}" }
         }
     }
 
@@ -231,6 +216,7 @@ class PlanningModel(private val session: Session) {
                 else -> 0
             }
         }
+        private val logger = KotlinLogging.logger {}
     }
 }
 

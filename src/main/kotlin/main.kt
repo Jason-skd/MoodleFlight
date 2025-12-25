@@ -4,7 +4,8 @@ import model.PlanningModel
 
 fun main() {
     Playwright.create().use { pr ->
-        Session(pr).use { session ->
+        val session = Session.create(pr).getOrElse { return }
+        session.use { session ->
             val planning = PlanningModel(session)
             planning.chooseCourses()
             planning.closeMyPage()
