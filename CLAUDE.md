@@ -18,6 +18,7 @@
 - **语言**: Kotlin
 - **自动化框架**: Playwright
 - **构建工具**: Gradle
+- **日志框架**: kotlin-logging + Logback
 
 ## 重要：参考网站
 
@@ -54,24 +55,39 @@ src/main/kotlin/
 ├── main.kt                     # 入口，串联各阶段流程
 ├── manager/
 │   └── Session.kt              # 浏览器会话管理 + Cookie 认证
-├── model/
-│   └── PlanningModel.kt        # 计划阶段：课程选择、视频提取、统计收集
-└── data/plans/<date>/
-    ├── courses.json            # 用户选择的课程
-    └── <课程名>_videos.json     # 各课程的视频列表及统计信息
+└── model/
+    └── PlanningModel.kt        # 计划阶段：课程选择、视频提取、统计收集
+
+src/main/resources/
+└── logback.xml                 # 日志配置：控制台 + 文件双输出
+
+data/
+├── plans/<date>/
+│   ├── courses.json            # 用户选择的课程
+│   └── <课程名>_videos.json     # 各课程的视频列表及统计信息
+└── logs/
+    └── moodleflight.log        # 日志文件（按日滚动，保留7天）
 ```
 
 ## 核心功能清单
 
-- [x] 浏览器启动与反检测 (Session.kt)
-- [x] Cookie 登录与会话管理 (Session.kt - verifyAuth, saveCookies)
-- [x] 课程列表获取与用户选择 (PlanningModel.chooseCourses)
-- [x] 视频链接提取 (PlanningModel.fetchVideosFromCourse)
-- [x] 视频统计收集 (PlanningModel.gatherVideosStatistics - watchSeconds/totalSeconds/finish)
+### 计划阶段 (PlanningModel) ✅
+- [x] 课程列表获取与用户选择 (chooseCourses)
+- [x] 视频链接提取 (fetchVideosFromCourse)
+- [x] 视频统计收集 (gatherVideosStatistics - watchSeconds/totalSeconds/finish)
 - [x] 断点续连（JSON 持久化 - courses.json, *_videos.json）
+
+### 会话管理 (Session) ✅
+- [x] 浏览器启动与反检测
+- [x] Cookie 登录与会话管理 (verifyAuth, saveCookies)
+
+### 基础设施 ✅
+- [x] 日志系统 (kotlin-logging + Logback，控制台+文件双输出)
+
+### 执行阶段 (待实现)
 - [ ] 视频自动播放与进度监控
 - [ ] 95% 进度自动切换
-- [ ] 日志系统与异常截屏
+- [ ] 异常截屏
 - [ ] 进度条显示
 
 ## 关键选择器

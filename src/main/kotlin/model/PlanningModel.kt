@@ -19,7 +19,9 @@ import java.nio.file.Path
 @Serializable
 data class Course(
     val name: String,
-    val url: String
+    val url: String,
+    var isFinished: Boolean = false,
+    var currentPlaying: Int = 0  // 当前播放到的视频
 )
 
 @Serializable
@@ -28,7 +30,7 @@ data class Video(
     val url: String,
     val watchSeconds: Int? =null,
     val totalSeconds: Int? = null,
-    val finish: Boolean = false
+    val isFinished: Boolean = false
 )
 
 /**
@@ -39,11 +41,11 @@ class PlanningModel(private val session: Session) {
     // moodle主页
     private val myPage: Page = session.newPage("https://moodle.scnu.edu.cn/my/")
 
-    lateinit var chosenCourses: List<Course>
+    lateinit var chosenCourses: Map<String, Course>
 
     private val today: LocalDate? = LocalDate.now()
     val planDir = Path("data/plans/$today")
-    val coursesDir: Path = planDir.resolve("courses.json")
+    val coursesDir: Path = planDir.resolve("courses.json")  // 要与CourseManager同步更改
 
     init {
         planDir.createDirectories()
@@ -61,7 +63,7 @@ class PlanningModel(private val session: Session) {
         return coursesInQuery.map { link ->
             Course(
                 name = link.textContent().trim(),
-                url = link.getAttribute("href") ?: ""
+                url = link.getAttribute("href") ?: "",  // 潜在风险，后续用Result处理
             )
         }
     }
@@ -76,7 +78,8 @@ class PlanningModel(private val session: Session) {
             chosenCourses = Json.decodeFromString(json)
         } else {
             val allCourses = fetchCourses()
-            chosenCourses = chooseCoursesIO(allCourses).map { allCourses[it] }
+            val selectedCourses = chooseCoursesIO(allCourses).map { allCourses[it] }
+            chosenCourses = selectedCourses.associateBy { it.name }
             pickleChosenCourses()
         }
     }
@@ -90,17 +93,27 @@ class PlanningModel(private val session: Session) {
         logger.info { "courses plan pickled to $coursesDir" }
     }
 
+    /**
+     * 关闭首页，当获取完课程应该手动调用
+     */
     fun closeMyPage() {
         myPage.close()
     }
 
+    /**
+     * 获取所有视频基础信息
+     */
     fun planVideos() {
-        chosenCourses.forEach { course ->
+        chosenCourses.values.forEach { course ->
             val result = planVideosForCourse(course)
             result.onFailure { throw it }
         }
     }
 
+    /**
+     * 决策该课程是否还需要获取视频基础信息
+     * @param course 课程
+     */
     private fun planVideosForCourse(course: Course): Result<String> {
         if (planDir.resolve("${course.name}_videos.json").exists()) {
             logger.info { "course ${course.name} already exists, skip"}
@@ -114,6 +127,10 @@ class PlanningModel(private val session: Session) {
         return result
     }
 
+    /**
+     * 获取一个课程的视频基础信息
+     * @param course 课程
+     */
     private fun fetchVideosFromCourse(course: Course): List<Video> {
         val videos: List<Video>
         session.newPage(course.url).use { coursePage ->
@@ -141,13 +158,21 @@ class PlanningModel(private val session: Session) {
         return videos
     }
 
+    /**
+     * 存储视频基础信息
+     * @param course 课程
+     * @param videos 这个课程的所有视频
+     */
     private fun pickleVideos(course: Course, videos: List<Video>) {
         val json = Json.encodeToString(videos)
-        val dir = planDir.resolve("${course.name}_videos.json")
+        val dir = planDir.resolve("${course.name}_videos.json")  // 要与CourseManager同步更改
         dir.writeText(json)
         logger.info { "videos plan pickled to $dir." }
     }
 
+    /**
+     * 获取所有视频的详细信息
+     */
     fun gatherVideosStatistics() {
         planDir.listDirectoryEntries("*_videos.json").forEach { file ->
             val videos: List<Video> = Json.decodeFromString(file.readText())
@@ -166,6 +191,9 @@ class PlanningModel(private val session: Session) {
         }
     }
 
+    /**
+     * 获取一个视频的详细信息
+     */
     private fun gatherAVideo(video: Video): Result<Video> {
         if (video.watchSeconds != null && video.totalSeconds != null) {
             logger.info { "statics of ${video.name} already exists, skip" }
@@ -191,9 +219,7 @@ class PlanningModel(private val session: Session) {
 
                 totalTimeText = videoPage.querySelector(".vjs-duration-display")?.textContent()
                 watchSecondsText = videoPage.querySelector(".num-gksc > span")?.textContent()
-                val finishText = videoPage.querySelector(".tips-completion")?.textContent()
-                finish = finishText == "已完成"
-
+                finish = isFinishedSchedule(videoPage)
             }
 
             val totalSeconds = totalTimeText?.let { parseDuration(it) }
@@ -201,13 +227,16 @@ class PlanningModel(private val session: Session) {
             val watchSeconds = watchSecondsText?.toIntOrNull()
                 ?: throw Exception("Unable to parse watch seconds")
 
-            video.copy(totalSeconds = totalSeconds, watchSeconds = watchSeconds, finish = finish)
+            video.copy(totalSeconds = totalSeconds, watchSeconds = watchSeconds, isFinished = finish)
         }.onFailure { e ->
             logger.error(e) { "failed to gather statics of ${video.name}: ${e.message}" }
         }
     }
 
     companion object {
+        /**
+         * 将 时:分:秒 格式转化为秒数
+         */
         private fun parseDuration(text: String): Int {
             val parts = text.split(":")
             return when (parts.size) {
