@@ -1,4 +1,4 @@
-# MoodleFlight  砺儒云飞行
+# MoodleFlight  "lry"飞行
 
 ## 解决痛点
 #### 1. 在moodle观看视频，缺乏自动化工具，在播放完成时自动切换下一个视频
@@ -14,3 +14,7 @@
 #### 3. 加入日志系统，对未能处理的异常跳转利用ChromeDevTools截屏并记录
 #### 4. 虽然本项目是后端程序，暂依赖命令行交互，后续有计划开发ui界面
 
+## 鸣谢
+感谢 **YewFence** 佬的https://github.com/YewFence/fly_vedio_assignment_away
+
+这是我的灵感来源和参考，我的项目是基于他的项目逻辑的优化和重构
