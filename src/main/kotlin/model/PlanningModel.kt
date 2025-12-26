@@ -10,6 +10,7 @@ import kotlin.io.path.*
 import manager.Session
 import mu.KotlinLogging
 import java.nio.file.Path
+import java.util.Objects
 
 /**
  * fetch的课程
@@ -42,6 +43,12 @@ data class Video(
             { it.totalSeconds}
         )
     }
+
+    override fun equals(other: Any?): Boolean = other is Video
+            && name == other.name && url == other.url
+
+
+    override fun hashCode(): Int = Objects.hash(name, url, totalSeconds)
 }
 /**
  * 课程规划流

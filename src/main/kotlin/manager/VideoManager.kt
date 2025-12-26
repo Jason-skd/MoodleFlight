@@ -4,7 +4,6 @@ import com.microsoft.playwright.Page
 import com.microsoft.playwright.options.AriaRole
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import model.PlanningModel
 import model.Video
 import model.isFinishedSchedule
 import mu.KotlinLogging
@@ -27,7 +26,7 @@ class VideoManager(session: Session, private var video: Video, private val video
     private val page = session.newPage(video.url)
 
     // 缓存字段，避免重复访问页面元素
-    private var watchedPercent: Int
+    private var watchedPercent: Double
     private var watchedSeconds: Int
     private var isFinishedCache: Boolean = false
 
@@ -61,7 +60,7 @@ class VideoManager(session: Session, private var video: Video, private val video
             Thread.sleep(5000)
         }
 
-        updateVideo()  // 最后再更新一次
+        updateVideo()
         video
     }.onFailure { e ->
         logger.error(e) { "$videoName: Playback failed" }
@@ -74,9 +73,8 @@ class VideoManager(session: Session, private var video: Video, private val video
         } catch (screenshotError: Exception) {
             logger.warn { "Failed to take screenshot: $screenshotError" }
         }
-
-        updateVideo()  // 失败时也要更新到最新状态
     }.also {
+        updateVideo()
         // 无论成功失败，只写一次文件
         persistVideo()
     }
@@ -101,27 +99,27 @@ class VideoManager(session: Session, private var video: Video, private val video
      * 失败返回默认值（非关键操作）
      * @return Pair(观看百分比, 已播放秒数)
      */
-    private fun getWatchedProcess(): Pair<Int, Int> {
+    private fun getWatchedProcess(): Pair<Double, Int> {
         val percent = page.querySelector(".num-bfjd > span")
             ?.textContent()
             ?.removeSuffix("%")
-            ?.toIntOrNull()
+            ?.toDoubleOrNull()
 
         if (percent == null) {
             logger.warn { "$videoName: No watched percent found, using 0" }
-            watchedPercent = 0
+            watchedPercent = 0.0
         } else {
             watchedPercent = percent
         }
 
-        val secondsText = page.querySelector(".num-gksc > span")
-            ?.textContent()
+        val seconds = page.querySelector(".num-gksc > span")
+            ?.textContent()?.toIntOrNull()
 
-        if (secondsText == null) {
+        if (seconds == null) {
             logger.warn { "$videoName: No watched seconds found, using 0" }
             watchedSeconds = 0
         } else {
-            watchedSeconds = PlanningModel.parseDuration(secondsText)
+            watchedSeconds = seconds
         }
 
         logger.trace { "Getting $videoName progress: $watchedPercent%, ${watchedSeconds}s" }
@@ -203,7 +201,7 @@ class VideoManager(session: Session, private var video: Video, private val video
     }
 }
 
-private fun displayProcess(videoName: String, percent: Int) {
+private fun displayProcess(videoName: String, percent: Double) {
     // 后端用，前端换接口
     println("$videoName watching percent: $percent %")
 }
