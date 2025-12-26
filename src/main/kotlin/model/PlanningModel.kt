@@ -20,8 +20,8 @@ import java.nio.file.Path
 data class Course(
     val name: String,
     val url: String,
-    var isFinished: Boolean = false,
-    var currentPlaying: Int = 0  // 当前播放到的视频
+    val isFinished: Boolean = false,
+    val currentPlaying: Int = 0  // 当前播放到的视频
 )
 
 @Serializable
@@ -31,8 +31,18 @@ data class Video(
     val watchSeconds: Int? =null,
     val totalSeconds: Int? = null,
     val isFinished: Boolean = false
-)
-
+): Comparable<Video>
+{
+    override fun compareTo(other: Video): Int {
+        return compareValuesBy(
+            this,
+            other,
+            { it.name },
+            { it.url },
+            { it.totalSeconds}
+        )
+    }
+}
 /**
  * 课程规划流
  * @param session 全局session
@@ -237,7 +247,7 @@ class PlanningModel(private val session: Session) {
         /**
          * 将 时:分:秒 格式转化为秒数
          */
-        private fun parseDuration(text: String): Int {
+        fun parseDuration(text: String): Int {
             val parts = text.split(":")
             return when (parts.size) {
                 2 -> parts[0].toInt() * 60 + parts[1].toInt()
@@ -254,6 +264,7 @@ class PlanningModel(private val session: Session) {
  * @return 课程在courses中的索引列表
  */
 private fun chooseCoursesIO(allCourses: List<Course>): List<Int> {
+    // 后端用，前端换接口
     // O
     allCourses.forEachIndexed { index, course ->
         println("${index + 1}. ${course.name}")

@@ -23,6 +23,7 @@ class Session private constructor(private val pr: Playwright, authToken: String)
     override fun close() {
         context.close()
         browser.close()
+        logger.info { "Session closed" }
     }
 
     companion object {

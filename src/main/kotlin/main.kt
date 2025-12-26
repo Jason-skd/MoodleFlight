@@ -1,6 +1,7 @@
 import com.microsoft.playwright.*
 import manager.Session
 import model.PlanningModel
+import model.executeCourse
 
 fun main() {
     Playwright.create().use { pr ->
@@ -11,6 +12,12 @@ fun main() {
             planning.closeMyPage()
             planning.planVideos()
             planning.gatherVideosStatistics()
+
+            planning.chosenCourses.values.forEach { course ->
+                if (!course.isFinished) {
+                    executeCourse(session, course, planning.planDir)
+                }
+            }
         }
     }
 }

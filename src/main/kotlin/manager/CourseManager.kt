@@ -4,11 +4,14 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import model.Course
 import model.Video
+import mu.KotlinLogging
 import java.nio.file.Path
 import kotlin.io.path.*
 
 /**
- * 管理Course
+ * 核心解决需要查找本门课程下一个视频的问题
+ * @param course 当前课程
+ * @param planDir 计划目录
  */
 class CourseManager(var course: Course, planDir: Path) {
     val courseName = course.name
@@ -22,9 +25,10 @@ class CourseManager(var course: Course, planDir: Path) {
      * 存储并返回结果
      */
     fun refreshFinish(): Boolean {
+        // 预留给前端的接口，理论上后端的顺序执行Finish能正确更新
         val actualFinished = videos.all(Video::isFinished)
-        course.isFinished = actualFinished
-        updateToCourseFile()
+        updateAndPersist(course.copy(isFinished = actualFinished))
+        logger.info { "$courseName actualFinished=$actualFinished" }
         return actualFinished
     }
 
@@ -40,12 +44,14 @@ class CourseManager(var course: Course, planDir: Path) {
         }
 
         // 一次额外的检查（从头开始找）
+        logger.trace { "Rechecking videos for course $courseName" }
         val fallback = videos.find { !it.isFinished }
         if (fallback != null) {
             return updateNextVideo(fallback)
         }
 
-        refreshFinish()
+        logger.info { "No video left for course $courseName" }
+        updateAndPersist(course.copy(isFinished = true))
         return null
     }
 
@@ -54,17 +60,25 @@ class CourseManager(var course: Course, planDir: Path) {
      * @return 并返回这个Video
      */
     private fun updateNextVideo(video: Video): Video {
-        course.currentPlaying = videos.indexOf(video)
-        updateToCourseFile()
+        val videoIndex = videos.indexOf(video)
+        updateAndPersist(course.copy(currentPlaying = videoIndex))
+        logger.info { "Next Video: ${video.name}"}
         return video
     }
 
     /**
-     * 将目前持有的Course写入文件
+     * 更新持有的Course并写入文件
      */
-    private fun updateToCourseFile() {
+    private fun updateAndPersist(courseCopy: Course) {
+        course = courseCopy
+
         val courses: Map<String, Course> = Json.decodeFromString(coursesFile.readText())
         val updatedCourses = courses + (courseName to course)
         coursesFile.writeText(Json.encodeToString(updatedCourses))
+        logger.info { "Course $courseName updated successfully" }
+    }
+
+    companion object {
+        private val logger = KotlinLogging.logger {}
     }
 }
