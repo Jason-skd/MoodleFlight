@@ -57,7 +57,7 @@ class VideoManager(session: Session, private var video: Video, private val video
 
             updateVideo()  // 每轮更新内存状态（轻量级）
 
-            Thread.sleep(5000)
+            Thread.sleep(15000)
         }
 
         updateVideo()
