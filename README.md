@@ -18,4 +18,4 @@
 ## 鸣谢
 感谢 **YewFence** 佬的https://github.com/YewFence/fly_vedio_assignment_away
 
-这是我的灵感来源和参考，我的项目是基于他的项目逻辑的优化和重构
+这是我的灵感来源和参考，我的项目是基于他的项目逻辑的重构，项目的名字也致敬了他

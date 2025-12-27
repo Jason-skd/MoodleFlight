@@ -118,3 +118,74 @@ data/
 2. **登录状态异常** → 检查 Cookie 格式和有效性
 3. **视频进度获取失败** → 查看视频页面 HTML 中的进度元素选择器
 4. **会话超时** → 确认「延长会话」按钮的检测逻辑
+
+## 已知问题
+
+1. **Error Code: 4 未被捕获**：Chromium 缺少 H.264 编解码器，需要在 gatherAVideo 中检测 `.vjs-error-display` 元素
+2. **浏览器兼容性**：另一台电脑需配置 Edge（`setChannel("msedge")`）
+
+## 未来规划 (TODO)
+
+### 阶段一：类重构
+- [ ] 将 PlanningModel 拆分为两个类：
+  - `CourseDiscovery`：获取课程列表、提取视频链接
+  - `VideoStatisticsGatherer`：遍历视频获取详细信息
+- [ ] 使用 JSON 文件作为两个类的契约接口
+
+### 阶段二：前后端分离 (Ktor 练习)
+- [ ] 引入 Ktor Server 作为后端
+- [ ] 设计 REST API：
+  - `GET /courses` - 获取课程列表
+  - `POST /plan` - 创建播放计划
+  - `GET /progress` - 获取播放进度
+  - `WebSocket /live-progress` - 实时进度推送
+- [ ] 引入 KMP Compose 作为前端桌面 UI（目标平台：Windows/macOS）
+
+### 阶段三：Python 并发优化
+- [ ] 用 Python + asyncio 重写 `VideoStatisticsGatherer`（利用协程并发）
+- [ ] 使用 PyInstaller 打包 Python 为二进制
+- [ ] Ktor 后端通过 `ProcessBuilder` 调用 Python 子进程
+
+### 阶段四：打包发布
+- [ ] Gradle 多模块结构：
+  ```
+  MoodleFlight/
+  ├── core/                # Kotlin 核心逻辑（共享）
+  ├── server/              # Ktor 后端
+  ├── desktop/             # KMP Compose 前端
+  └── python-gatherer/     # Python 视频信息获取器
+  ```
+- [ ] 后端打包为 Shadow JAR
+- [ ] 前端启动时自动启动后端子进程
+- [ ] 最终打包为单个安装文件（.dmg / .msi）
+- [ ] GitHub Actions CI/CD 跨平台打包
+
+### 架构图
+
+```
+┌─────────────────────────────────────────────┐
+│            安装包 (单个 .dmg / .exe)          │
+│  ┌─────────────────────────────────────────┐ │
+│  │           前端 (KMP Compose)            │ │
+│  │                  │                      │ │
+│  │            启动子进程                    │ │
+│  │                  ▼                      │ │
+│  │  ┌─────────────────────────────────────┐│ │
+│  │  │    后端 (Ktor Server JAR)           ││ │
+│  │  │         localhost:8080              ││ │
+│  │  │              │                      ││ │
+│  │  │        ProcessBuilder               ││ │
+│  │  │              ▼                      ││ │
+│  │  │     Python 二进制 (并发获取)         ││ │
+│  │  └─────────────────────────────────────┘│ │
+│  └─────────────────────────────────────────┘ │
+└─────────────────────────────────────────────┘
+```
+
+### 通信流程
+
+```
+用户操作 → KMP 前端 → HTTP → Ktor 后端 → ProcessBuilder → Python
+                                ↑                           │
+                                └─────── JSON 文件 ←────────┘
+```

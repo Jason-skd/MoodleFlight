@@ -1,6 +1,7 @@
 package manager
 
 import com.microsoft.playwright.*
+import kotlinx.coroutines.runBlocking
 import java.lang.AutoCloseable
 import kotlin.io.path.Path
 import kotlin.io.path.exists
@@ -29,15 +30,24 @@ class Session private constructor(private val pr: Playwright, authToken: String)
     companion object {
         val authStoragePath = Path("data/authToken.json")
 
+        /**
+         * 检测可用浏览器并决定使用哪个
+         */
+        private fun decideChannel() = runBlocking {
+            val availableBrowsers = detectAvailableBrowsers()
+            val chosenChannel = chooseChannel(availableBrowsers)
+            logger.info { "chosen browser: ${chosenChannel.browserName}" }
+            authOptions.setChannel(chosenChannel.browserName)
+            runningOptions.setChannel(chosenChannel.browserName)
+        }
+
         private val authOptions = BrowserType.LaunchOptions()
             .setHeadless(false)      // 不能改！！登录配置必须关闭无头模式
-            .setChannel("chrome")
             .setArgs(listOf("--disable-blink-features=AutomationControlled"))
 
 
         private val runningOptions = BrowserType.LaunchOptions()
             .setHeadless(true)
-            .setChannel("chrome")
             .setArgs(listOf("--disable-blink-features=AutomationControlled"))
 
         private val logger = KotlinLogging.logger {}
@@ -102,6 +112,9 @@ class Session private constructor(private val pr: Playwright, authToken: String)
                 return loginRequired()
             }
 
+            // 选择浏览器
+            decideChannel()
+
             val tokenResult = if (!alreadyFailed) authenticationVerify() else loginRequired()
             val authToken = tokenResult.getOrElse {
                 return Result.failure(it)
@@ -109,4 +122,16 @@ class Session private constructor(private val pr: Playwright, authToken: String)
             return Result.success(Session(pr, authToken))
         }
     }
+}
+
+/**
+ * 让用户选择浏览器
+ */
+private fun chooseChannel(available: Set<Browsers>): Browsers {
+    val list = available.toList()
+    println("请选择要使用的浏览器：")
+    list.forEachIndexed { index, browser ->
+        println("${index + 1}. ${browser.browserName}")
+    }
+    return list[readln().toInt() - 1]
 }
