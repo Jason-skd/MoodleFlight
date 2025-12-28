@@ -25,6 +25,11 @@ kotlin {
     jvmToolchain(21)
 }
 
+// 修复 Windows 控制台中文乱码问题
+tasks.withType(JavaExec) {
+    jvmArgs '-Dfile.encoding=UTF-8'
+}
+
 test {
     useJUnitPlatform()
 }
