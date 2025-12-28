@@ -52,11 +52,16 @@ TargetWebsite/
 
 ```
 src/main/kotlin/
-├── main.kt                     # 入口，串联各阶段流程
+├── main.kt                         # 入口（后端测试用）
 ├── manager/
-│   └── Session.kt              # 浏览器会话管理 + Cookie 认证
+│   ├── Session.kt                  # 浏览器会话管理 + Cookie 认证
+│   ├── Config.kt                   # 浏览器检测与选择（Chrome/Edge/Firefox）
+│   ├── CourseManager.kt            # 课程状态管理：下一个视频、完成状态
+│   └── VideoManager.kt             # 视频播放控制：播放、进度监控、会话延长
 └── model/
-    └── PlanningModel.kt        # 计划阶段：课程选择、视频提取、统计收集
+    ├── PlanningModel.kt            # 计划阶段：课程选择、视频提取、统计收集（待拆分）
+    ├── executeCourse.kt            # 执行阶段入口
+    └── isFinishedSchedule.kt       # 完成状态判断
 
 src/main/resources/
 └── logback.xml                 # 日志配置：控制台 + 文件双输出
@@ -68,6 +73,16 @@ data/
 └── logs/
     └── moodleflight.log        # 日志文件（按日滚动，保留7天）
 ```
+
+## 关键类职责（重构目标）
+
+| 类 | 职责 | 输入 | 输出 |
+|---|---|---|---|
+| Session | 浏览器生命周期、认证 | - | authToken.json |
+| CourseDiscovery | 获取课程列表、提取视频链接 | 用户选择 | courses.json, *_videos.json（基础信息） |
+| VideoStatisticsGatherer | 遍历视频获取详细信息 | *_videos.json | *_videos.json（含 watchSeconds/totalSeconds） |
+| CourseManager | 课程进度追踪 | courses.json | courses.json (currentPlaying) |
+| VideoManager | 单视频播放控制 | Video | *_videos.json (watchSeconds, isFinished) |
 
 ## 核心功能清单
 
@@ -84,11 +99,13 @@ data/
 ### 基础设施 ✅
 - [x] 日志系统 (kotlin-logging + Logback，控制台+文件双输出)
 
-### 执行阶段 (待实现)
-- [ ] 视频自动播放与进度监控
-- [ ] 95% 进度自动切换
-- [ ] 异常截屏
-- [ ] 进度条显示
+### 执行阶段 (VideoManager) ✅
+- [x] 视频自动播放 (play)
+- [x] 进度监控 (getWatchedProcess)
+- [x] 完成状态检测 (isFinishedSchedule)
+- [x] 会话延长处理 (handleSessionExtension)
+- [x] 异常截屏 (playUntilFinished onFailure)
+- [ ] 进度条显示（当前仅 println）
 
 ## 关键选择器
 

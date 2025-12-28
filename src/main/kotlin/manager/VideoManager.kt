@@ -6,6 +6,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import model.Video
 import model.isFinishedSchedule
+import model.screenShotUtil
 import mu.KotlinLogging
 import java.lang.AutoCloseable
 import java.nio.file.Path
@@ -66,13 +67,7 @@ class VideoManager(session: Session, private var video: Video, private val video
         logger.error(e) { "$videoName: Playback failed" }
 
         // 失败时截屏
-        try {
-            val now = LocalDateTime.now()
-            page.screenshot(Page.ScreenshotOptions()
-                .setPath(Path("data/screenshots/${videoName}_$now.png")))
-        } catch (screenshotError: Exception) {
-            logger.warn { "Failed to take screenshot: $screenshotError" }
-        }
+        screenShotUtil(page)
     }.also {
         updateVideo()
         // 无论成功失败，只写一次文件

@@ -21,9 +21,17 @@ import java.util.Objects
 data class Course(
     val name: String,
     val url: String,
+    val id: String =
+        url.substringAfter("id="),
     val isFinished: Boolean = false,
     val currentPlaying: Int = 0  // 当前播放到的视频
-)
+){
+    override fun equals(other: Any?): Boolean =
+        other is Course && id == other.id
+
+    override fun hashCode(): Int = id.hashCode()
+}
+
 
 @Serializable
 data class Video(
@@ -32,18 +40,7 @@ data class Video(
     val watchSeconds: Int? =null,
     val totalSeconds: Int? = null,
     val isFinished: Boolean = false
-): Comparable<Video>
-{
-    override fun compareTo(other: Video): Int {
-        return compareValuesBy(
-            this,
-            other,
-            { it.name },
-            { it.url },
-            { it.totalSeconds}
-        )
-    }
-
+) {
     override fun equals(other: Any?): Boolean = other is Video
             && name == other.name && url == other.url
 

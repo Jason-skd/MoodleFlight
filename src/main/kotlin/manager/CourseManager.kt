@@ -15,6 +15,7 @@ import kotlin.io.path.*
  */
 class CourseManager(var course: Course, planDir: Path) {
     val courseName = course.name
+    val id = course.id
     val coursesFile: Path = planDir.resolve("courses.json")
     val videosFile: Path = planDir.resolve("${courseName}_videos.json")
     val videos: List<Video>
@@ -73,7 +74,7 @@ class CourseManager(var course: Course, planDir: Path) {
         course = courseCopy
 
         val courses: Map<String, Course> = Json.decodeFromString(coursesFile.readText())
-        val updatedCourses = courses + (courseName to course)
+        val updatedCourses = courses + (id to course)
         coursesFile.writeText(Json.encodeToString(updatedCourses))
         logger.info { "Course $courseName updated successfully" }
     }

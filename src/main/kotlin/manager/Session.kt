@@ -8,7 +8,10 @@ import kotlin.io.path.exists
 import mu.KotlinLogging
 
 /**
- * 管理浏览器会话，统一context
+ * 管理会话。
+ * 1. 检测并选择浏览器
+ * 2. 验证登录 -> 获取AuthToken -> 保存AuthToken
+ * 3. 提供新页面接口
  * @param pr Playwright
  */
 class Session private constructor(private val pr: Playwright, authToken: String) : AutoCloseable {
@@ -17,6 +20,9 @@ class Session private constructor(private val pr: Playwright, authToken: String)
 
     private val context = browser.newContext(Browser.NewContextOptions().setStorageState(authToken))
 
+    /**
+     * 创建新页面并导航到指定URL
+     */
     fun newPage(url: String): Page = context.newPage().apply {
         navigate(url)
     }
@@ -37,8 +43,13 @@ class Session private constructor(private val pr: Playwright, authToken: String)
             val availableBrowsers = detectAvailableBrowsers()
             val chosenChannel = chooseChannel(availableBrowsers)
             logger.info { "chosen browser: ${chosenChannel.browserName}" }
-            authOptions.setChannel(chosenChannel.browserName)
-            runningOptions.setChannel(chosenChannel.browserName)
+            useChannel(chosenChannel.browserName)
+        }
+
+        private fun useChannel(browserName: String) {
+            authOptions.setChannel(browserName)
+            runningOptions.setChannel(browserName)
+            logger.info { "Using $browserName" }
         }
 
         private val authOptions = BrowserType.LaunchOptions()
@@ -52,6 +63,16 @@ class Session private constructor(private val pr: Playwright, authToken: String)
 
         private val logger = KotlinLogging.logger {}
 
+        /**
+         * 生产Session
+         * 1. 使用config配置的浏览器 || 让用户选择浏览器
+         * 2. 判断有没有AuthToken
+         * 3. 首次登录: 试探性握手AuthToken -> 需要登录 || 启动Session
+         * 4. 登录失败过: 需要登录
+         *
+         * Failure: 在登录时失败
+         * @param alreadyFailed 是否已经登录失败过
+         */
         fun create(pr: Playwright, alreadyFailed: Boolean = false): Result<Session> {
             /**
              * 进行登录，保存AuthToken
@@ -112,8 +133,14 @@ class Session private constructor(private val pr: Playwright, authToken: String)
                 return loginRequired()
             }
 
-            // 选择浏览器
-            decideChannel()
+            // 浏览器
+            val config = Config.load()
+            if (config.browserChannel != null) {
+                logger.info { "configured browser: ${config.browserChannel.browserName}" }
+                useChannel(config.browserChannel.browserName)
+            } else {
+                decideChannel()
+            }
 
             val tokenResult = if (!alreadyFailed) authenticationVerify() else loginRequired()
             val authToken = tokenResult.getOrElse {
