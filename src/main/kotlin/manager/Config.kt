@@ -2,9 +2,13 @@ package manager
 
 import kotlinx.serialization.Serializable
 import kotlinx.coroutines.*
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import mu.KotlinLogging
 import kotlin.io.path.Path
 import kotlin.io.path.exists
+import kotlin.io.path.readText
+import kotlin.io.path.writeText
 
 val logger = KotlinLogging.logger {}
 
@@ -25,8 +29,24 @@ enum class Browsers(val browserName: String, val macPath: String, val winPath: S
 
 @Serializable
 data class Config(
-    val browserChannel: Browsers
+    val browserChannel: Browsers? = null,
 ) {
+    fun save() {
+        val path = Path("data/config.json")
+        val json = Json.encodeToString(this)
+        path.writeText(json)
+    }
+    companion object{
+        fun load(): Config {
+            val path = Path("data/config.json")
+            return if (path.exists()){
+                val json = path.readText()
+                Json.decodeFromString<Config>(json)
+            } else {
+                Config()
+            }
+        }
+    }
 }
 
 suspend fun detectAvailableBrowsers(): Set<Browsers> {

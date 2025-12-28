@@ -12,7 +12,7 @@ fun executeCourse(session: Session, course: Course, planDir: Path) {
     var nextVideo = courseManager.nextVideo()
 
     while (nextVideo != null) {
-        VideoManager(session, nextVideo, courseManager.videosFile).use { vm ->
+        VideoManager(session, nextVideo, courseManager.videoFile).use { vm ->
             val result = vm.playUntilFinished()
 
             result.onFailure { logger.error(it)
