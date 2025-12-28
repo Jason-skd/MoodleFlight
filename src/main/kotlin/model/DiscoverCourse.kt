@@ -12,7 +12,7 @@ import kotlin.io.path.writeText
  * 1. 获取全部课程
  * 2. 将要选择的课程持久化
  */
-class DiscoverCourse(val session: Session, val planDir: Path) {
+class DiscoverCourse(session: Session, val planDir: Path) {
     val myPage = session.newPage("https://moodle.scnu.edu.cn/my/")
     val allCourses = fetchCourses()
 

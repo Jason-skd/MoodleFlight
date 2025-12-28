@@ -1,15 +1,6 @@
 package model
 
-import com.microsoft.playwright.*
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.encodeToString
-import java.time.LocalDate
-import kotlin.io.path.*
-
-import manager.Session
-import mu.KotlinLogging
-import java.nio.file.Path
 import java.util.Objects
 
 /**

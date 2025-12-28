@@ -1,43 +1,51 @@
 import com.microsoft.playwright.*
 import kotlinx.serialization.json.Json
+import manager.PlanManager
 import manager.Session
+import manager.choosePlanIO
 import model.*
-import kotlin.io.path.Path
-import kotlin.io.path.createDirectories
-import java.time.LocalDate
 import kotlin.io.path.readText
 
 fun main() {
     Playwright.create().use { pr ->
         val session = Session.create(pr).getOrElse { return }
         session.use { session ->
-            val planDir = Path("data/plans/${LocalDate.now()}")
-            planDir.createDirectories()
+            val planManager = PlanManager()
+            val courses: Map<String, Course>
+            val (planDir, planWithName) = planManager.choosePlanIO()
+            if (planWithName == null) {
+                // 1. 课程发现 & 用户选择
+                val discovery = DiscoverCourse(session, planDir)
+                val chosenIds = chooseCoursesIO(discovery.allCourses)
+                discovery.chosenCourses(chosenIds)
 
-            // 1. 课程发现 & 用户选择
-            val discovery = DiscoverCourse(session, planDir)
-            val chosenIds = chooseCoursesIO(discovery.allCourses)
-            discovery.chosenCourses(chosenIds)
+                // 2. 概览视频（提取视频链接）
+                OverviewVideos.create(session, planDir)
+                    .onSuccess { it.overviewAllCourses() }
+                    .onFailure {
+                        println("Failed to create OverviewVideos: ${it.message}")
+                        return
+                    }
 
-            // 2. 概览视频（提取视频链接）
-            OverviewVideos.create(session, planDir)
-                .onSuccess { it.overviewAllCourses() }
-                .onFailure {
-                    println("Failed to create OverviewVideos: ${it.message}")
-                    return
+                // 3. 收集视频统计信息
+                val coursesFile = planDir.resolve("courses.json")
+                courses = Json.decodeFromString(coursesFile.readText())
+
+                courses.values.forEach { course ->
+                    if (!course.isFinished) {
+                        GatherVideoStatics.create(session, course, planDir)
+                            .onFailure {
+                                println("Failed to gather statistics for ${course.name}: ${it.message}")
+                            }
+                    }
                 }
-
-            // 3. 收集视频统计信息
-            val coursesFile = planDir.resolve("courses.json")
-            val courses: Map<String, Course> = Json.decodeFromString(coursesFile.readText())
-
-            courses.values.forEach { course ->
-                if (!course.isFinished) {
-                    GatherVideoStatics.create(session, course, planDir)
-                        .onFailure {
-                            println("Failed to gather statistics for ${course.name}: ${it.message}")
-                        }
+            } else {
+                println("该计划包含以下课程: ")
+                planWithName.values.forEach { course ->
+                    val name = course.name
+                    println(name)
                 }
+                courses = planWithName
             }
 
             // 4. 执行播放
