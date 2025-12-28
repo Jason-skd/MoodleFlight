@@ -17,9 +17,9 @@ class CourseManager(var course: Course, planDir: Path) {
     val courseName = course.name
     val id = course.id
     val coursesFile: Path = planDir.resolve("courses.json")
-    val videosFile: Path = planDir.resolve("${courseName}_videos.json")
+    val videoFile: Path = planDir.resolve("${courseName}_videos.json")
     val videos: List<Video>
-        get() = Json.decodeFromString(videosFile.readText())
+        get() = Json.decodeFromString(videoFile.readText())
 
     /**
      * 判断是否刷完

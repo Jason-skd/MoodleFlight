@@ -79,9 +79,9 @@ class OverviewVideos private constructor
      */
     private fun persistVideos(videos: List<Video>, course: Course) {
         val json = Json.encodeToString(videos)
-        val videoDir = planDir.resolve("${course.name}_videos.json")  // 要与CourseManager同步更改
-        videoDir.writeText(json)
-        logger.info { "videos plan persisted to $videoDir." }
+        val videoFile = planDir.resolve("${course.name}_videos.json")  // 要与CourseManager同步更改
+        videoFile.writeText(json)
+        logger.info { "videos plan persisted to $videoFile." }
     }
 
     companion object {
@@ -93,6 +93,6 @@ class OverviewVideos private constructor
             val coursesFile = planDir.resolve("courses.json")
             val coursesMap: Map<String, Course> = Json.decodeFromString(coursesFile.readText())
             OverviewVideos(session, planDir, coursesMap)
-        }.onFailure { logger.error(it) { "courses file read or parse error" } }
+        }.onFailure { logger.error(it) { "courses file read or parse error during creating overviewVideos" } }
     }
 }
